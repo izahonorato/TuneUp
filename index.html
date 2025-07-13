@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>TuneUp! - Guitar and Ukulele</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <h1>🎸 TuneUp!</h1>
+
+    <div id="instrument-buttons">
+        <button class="instrument-btn active" data-instrument="guitar">Guitar</button>
+        <button class="instrument-btn" data-instrument="ukulele">Ukulele</button>
+    </div>
+
+    <p id="tuning-notes">Standard Tuning: E2 - A2 - D3 - G3 - B3 - E4</p>
+
+    <button onclick="startTuner()">Start Tuner</button>
+
+    <div id="freq">Frequency: -- Hz</div>
+    <div id="note" class="default">Note: --</div>
+
+    <div class="tuner-ruler">
+        <div class="ruler-center"></div>
+        <div class="needle" id="needle"></div>
+    </div>
+
+    <script>
+        let audioContext, analyser, buffer, bufferSize = 2048;
+        let lastNoteTime = 0;
+        let holdDuration = 1000;
+
+        let selectedInstrument = 'guitar';
+        const tuningNotesElem = document.getElementById('tuning-notes');
+        const instrumentButtons = document.querySelectorAll('.instrument-btn');
+
+        const standardTunings = {
+            guitar: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+            ukulele: ['G4', 'C4', 'E4', 'A4']
+        };
+
+        instrumentButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                instrumentButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedInstrument = btn.getAttribute('data-instrument');
+                tuningNotesElem.textContent = 'Standard Tuning: ' + standardTunings[selectedInstrument].join(' - ');
+            });
+        });
+
+        async function startTuner() {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(stream);
+
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = bufferSize;
+            buffer = new Float32Array(bufferSize);
+
+            source.connect(analyser);
+
+            detectPitch();
+        }
+
+        function detectPitch() {
+            analyser.getFloatTimeDomainData(buffer);
+
+            const freq = autoCorrelate(buffer, audioContext.sampleRate);
+
+            const now = Date.now();
+            const noteElem = document.getElementById('note');
+
+            if (freq > 20 && freq < 5000) {
+                document.getElementById('freq').textContent = `Frequency: ${freq.toFixed(2)} Hz`;
+                const note = frequencyToNote(freq);
+                noteElem.textContent = `Note: ${note}`;
+
+                const cents = getCentsDifference(freq, note);
+                const needle = document.getElementById('needle');
+                const maxCents = 50;
+                let clampedCents = Math.max(-maxCents, Math.min(cents, maxCents));
+                let percent = (clampedCents + maxCents) / (2 * maxCents);
+                needle.style.left = `calc(${percent * 100}% - 1px)`;
+
+                if (Math.abs(cents) < 5) {
+                    noteElem.className = "in-tune";
+                } else if (Math.abs(cents) < 20) {
+                    noteElem.className = "slightly-off";
+                } else {
+                    noteElem.className = "out-of-tune";
+                }
+
+                lastNoteTime = now;
+
+            } else {
+                if (now - lastNoteTime < holdDuration) {
+                    // mantém última nota
+                } else {
+                    document.getElementById('freq').textContent = `Frequency: -- Hz`;
+                    noteElem.textContent = `Note: --`;
+                    noteElem.className = "default";
+                }
+            }
+
+            requestAnimationFrame(detectPitch);
+        }
+
+        function autoCorrelate(buffer, sampleRate) {
+            let SIZE = buffer.length;
+            let rms = 0;
+
+            for (let i = 0; i < SIZE; i++) {
+                let val = buffer[i];
+                rms += val * val;
+            }
+            rms = Math.sqrt(rms / SIZE);
+            if (rms < 0.01) return -1;
+
+            let r1 = 0, r2 = SIZE - 1, threshold = 0.2;
+            for (let i = 0; i < SIZE / 2; i++) {
+                if (Math.abs(buffer[i]) < threshold) { r1 = i; break; }
+            }
+            for (let i = 1; i < SIZE / 2; i++) {
+                if (Math.abs(buffer[SIZE - i]) < threshold) { r2 = SIZE - i; break; }
+            }
+
+            buffer = buffer.slice(r1, r2);
+            SIZE = buffer.length;
+
+            let c = new Array(SIZE).fill(0);
+            for (let lag = 0; lag < SIZE; lag++) {
+                for (let i = 0; i < SIZE - lag; i++) {
+                    c[lag] += buffer[i] * buffer[i + lag];
+                }
+            }
+
+            let d = 0;
+            while (c[d] > c[d + 1]) d++;
+            let maxval = -1, maxpos = -1;
+            for (let i = d; i < SIZE; i++) {
+                if (c[i] > maxval) {
+                    maxval = c[i];
+                    maxpos = i;
+                }
+            }
+
+            if (maxpos == -1) return -1;
+
+            return sampleRate / maxpos;
+        }
+
+        function frequencyToNote(freq) {
+            const A4 = 440;
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const midi = Math.round(69 + 12 * Math.log2(freq / A4));
+            const noteName = noteNames[(midi + 120) % 12];
+            const octave = Math.floor(midi / 12) - 1;
+            return `${noteName}${octave}`;
+        }
+
+        function getCentsDifference(freq, noteStr) {
+            const A4 = 440;
+            const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+            const match = noteStr.match(/^([A-G]#?)(-?\d+)$/);
+            if (!match) return 0;
+
+            const noteName = match[1];
+            const octave = parseInt(match[2]);
+            const noteIndex = noteNames.indexOf(noteName);
+            const midi = (octave + 1) * 12 + noteIndex;
+            const noteFreq = A4 * Math.pow(2, (midi - 69) / 12);
+
+            return 1200 * Math.log2(freq / noteFreq);
+        }
+    </script>
+</body>
+<footer>Made by @themindmischief</footer>
+</html>

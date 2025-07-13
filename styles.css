@@ -1,0 +1,109 @@
+body {
+    background-color: #111;
+    color: #f5f5f5;
+    font-family: sans-serif;
+    text-align: center;
+    margin-top: 50px;
+}
+
+button {
+    background-color: #333;
+    color: #f5f5f5;
+    border: none;
+    padding: 10px 20px;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+button:hover {
+    background-color: #555;
+}
+
+#freq, #note {
+    font-size: 36px;
+    margin: 20px;
+    transition: color 0.3s ease;
+}
+
+.default {
+    color: #f5f5f5;
+}
+
+.in-tune {
+    color: #00ff00; /* verde */
+}
+
+.slightly-off {
+    color: #ffff00; /* amarelo */
+}
+
+.out-of-tune {
+    color: #ff3333; /* vermelho */
+}
+
+.tuner-ruler {
+    position: relative;
+    width: 300px;
+    height: 4px;
+    margin: 40px auto;
+    background-color: #444;
+    border-radius: 2px;
+}
+
+.ruler-center {
+    position: absolute;
+    left: 50%;
+    top: -6px;
+    width: 2px;
+    height: 16px;
+    background-color: #888;
+}
+
+.needle {
+    position: absolute;
+    top: -8px;
+    width: 2px;
+    height: 20px;
+    background-color: #f5f5f5;
+    transition: left 0.1s ease;
+}
+
+#instrument-buttons {
+    margin: 20px 0;
+}
+
+.instrument-btn {
+    background-color: #333;
+    border: 1px solid #555;
+    color: #f5f5f5;
+    padding: 8px 16px;
+    margin: 0 5px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.instrument-btn:hover {
+    background-color: #555;
+}
+
+.instrument-btn.active {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: #fff;
+}
+
+footer {
+    position: fixed;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #222;
+    color: #f5f5f5;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    opacity: 0.8;
+}
